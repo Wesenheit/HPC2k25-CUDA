@@ -11,7 +11,13 @@
 __global__ void TourConstruction(float * pheromones, float* distances,curandState* states,int * tours,int N,float alpha, float beta)
 {
     /// N - total size of the graph 
-    /// 
+    /// phromones - pheromones on the edges [N*N]
+    /// distances - distances between the cities [N*N]
+    /// states - random states for each thread
+    /// tours - the tours for each ant [N*N]
+    /// alpha - pheromone importance
+    /// beta - distance importance
+
     int idx = threadIdx.x + blockIdx.x * blockDim.x;
     int local_idx = threadIdx.x; //local idx in group
     float sum_prob = 0.0;
@@ -93,13 +99,31 @@ __global__ void DepositPheromones(int * tour, float* pheromones, float* distance
 
 std::pair<float,std::vector<float>> AntThread(Graph & graph, int num_iterations, float alpha, float beta, float evaporate, unsigned long seed)
 {
-    dim3 threads(16);
-    dim3 blocks((graph.N + threads.x - 1) / threads.x);
-    size_t local_mem_size = threads.x * graph.N * sizeof(float) * 2 ;
-
+    int threads_per_block = 16;
     cudaDeviceProp prop;
     cudaGetDeviceProperties(&prop, 0);
-    assert(prop.sharedMemPerBlock > local_mem_size);
+    dim3 blocks;
+    dim3 threads;
+    size_t local_mem_size;
+    
+    while (true)
+    {
+        threads = dim3(threads_per_block);
+        blocks = dim3((graph.N + threads.x - 1) / threads.x);
+        local_mem_size = threads.x * graph.N * sizeof(float) * 2 ;
+        if (prop.sharedMemPerBlock > local_mem_size)
+        {
+            break;
+        }
+        else
+        {
+            threads_per_block /= 2;
+            if (threads_per_block == 1 )
+            {
+                throw std::runtime_error("Too few threads per block");
+            }
+        }
+    }
 
     curandState* states;
     gpuErrchk(cudaMalloc((void**)&states, graph.N * sizeof(curandState)));

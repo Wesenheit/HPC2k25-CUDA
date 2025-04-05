@@ -69,19 +69,34 @@ Graph::Graph(std::string &filename)
         std::string key;
         std::string dummy;
         iss >> key;
-        if (key == "NAME") {
+        if (key == "NAME" || key == "NAME:") {
             iss >> dummy; // Skip the :
-            iss >> this->name;
-        } else if (key == "TYPE") {
+            if (dummy == ":")
+            {   
+                iss >> dummy;
+            }
+            this->name = dummy;
+        } else if (key == "TYPE" ||  key == "TYPE:") {
             iss >> dummy; // Skip the :
-            iss >> this->type;
-        } else if (key == "DIMENSION") {
+            if (dummy == ":")
+            {   
+                iss >> dummy;
+            }
+            this->type = dummy;
+        } else if (key == "DIMENSION" || key == "DIMENSION:") {
             iss >> dummy; // Skip the :
-            iss >> this->N;
-        } else if (key == "EDGE_WEIGHT_TYPE") {
-            iss >> dummy; // Skip the :
+            if (dummy == ":")
+            {   
+                iss >> dummy;
+            }
+            this->N = stoi(dummy);
+        } else if (key == "EDGE_WEIGHT_TYPE" || key == "EDGE_WEIGHT_TYPE:") {
             std::string edge_type_str;
-            iss >> edge_type_str;
+            iss >> edge_type_str; // Skip the :
+            if (edge_type_str == ":")
+            {   
+                iss >> edge_type_str;
+            }
             if (edge_type_str == "EUC_2D") this->edge_type = EUC_2D;
             else if (edge_type_str == "CEIL_2D") this->edge_type = CEIL_2D;
             else if (edge_type_str == "GEO") this->edge_type = GEO;
@@ -134,8 +149,9 @@ void save_output(std::string& name,std::pair<float,std::vector<float>>& result)
     file << result.first << std::endl;
     for (auto value :result.second)
     {
-        file << value << " ";
+        file << value +1 << " ";
     }
+    file<<std::endl;
     file.close();
 }
 
