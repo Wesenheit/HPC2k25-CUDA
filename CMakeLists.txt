@@ -9,8 +9,7 @@ add_executable(acotsp src/main.cu)
 set_property(TARGET acotsp PROPERTY CUDA_ARCHITECTURES 75)
 target_include_directories(acotsp PRIVATE ${CUDAToolkit_INCLUDE_DIRS})
 
-
-set(CMAKE_CUDA_FLAGS_DEBUG "-G -g")
+#set(CMAKE_CUDA_FLAGS_DEBUG "-G -g")
 target_compile_options(acotsp PRIVATE 
     $<$<COMPILE_LANGUAGE:CUDA>: -allow-unsupported-compiler>
 )

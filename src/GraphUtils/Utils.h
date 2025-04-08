@@ -16,32 +16,5 @@ inline void gpuAssert(cudaError_t code, const char *file, int line, bool abort=t
    }
 }
 
-__global__ void init_rng(curandState* states, unsigned long seed, int n) {
-   int idx = blockIdx.x * blockDim.x + threadIdx.x;
-   curand_init(seed, idx, 0, &states[idx]);
-}
-
-
-__device__ int select_prob(float * prob, int N, curandState * state)
-{
-   float sum = 0.0;
-   for (int i = 0; i < N; i++)
-   {
-      sum += prob[i];
-   }
-   float random = curand_uniform(state) * sum;
-   float cumulative_sum = 0.0;
-   for (int i = 0; i < N; i++)
-   {
-      cumulative_sum += prob[i];
-      if (cumulative_sum >= random)
-      {
-         return i;
-      }
-   }
-   return -1; // Should not reach here
-}
-
-
 
 #endif // UTILS_H

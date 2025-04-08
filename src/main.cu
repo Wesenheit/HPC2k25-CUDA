@@ -23,6 +23,11 @@ int main(int argc, const char* argv[])
         auto solution = AntThread(input, num_iter, alpha, beta, evaporate, seed);
         save_output(outputFile,solution);
     }
+    else if (type == "QUEEN")
+    {
+        auto solution = QueenAnt(input, num_iter, alpha, beta, evaporate, seed);
+        save_output(outputFile,solution);
+    }
     else
     {
         throw std::invalid_argument("Invalid type");

@@ -125,7 +125,7 @@ Graph::Graph(std::string &filename)
         {
             if (i == j)
             {
-                distances[i * N + j] = 0;
+                distances[i * N + j] = MAXFLOAT;
             }
             else
             {
