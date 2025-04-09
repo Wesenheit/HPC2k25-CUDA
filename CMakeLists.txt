@@ -1,5 +1,6 @@
 cmake_minimum_required(VERSION 3.18)
 set(CMAKE_CUDA_ARCHITECTURES 75)
+
 project(acotsp LANGUAGES CXX CUDA)
 
 find_package(CUDAToolkit REQUIRED) #cuda
