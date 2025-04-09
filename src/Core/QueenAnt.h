@@ -17,7 +17,7 @@ __global__ void TourConstruction_QueenAnt(float * pheromones, float* distances,c
     
     extern __shared__ float shared_mem[];
     int local_size = blockDim.x;
-    bool * visited = (bool * ) shared_mem;
+    uint8_t * visited = (uint8_t * ) shared_mem;
     float * selection_prob  = (float *) visited + local_size;   
     int * global_current = (int*) selection_prob + local_size; // global current city
     // not very elegant but works, we are just casting float* to int*
@@ -58,7 +58,7 @@ std::pair<float,std::vector<float>> QueenAnt(Graph & graph, int num_iterations, 
     cudaGetDeviceProperties(&prop, 0);
 
     size_t local_mem_size;
-    local_mem_size = (graph.N * sizeof(float) + graph.N * sizeof(bool) + sizeof(int)); // two arrays of size N
+    local_mem_size = (graph.N * sizeof(float) + graph.N * sizeof(uint8_t) + sizeof(int)); // two arrays of size N
     
     assert(prop.sharedMemPerBlock > local_mem_size);
 
