@@ -96,7 +96,7 @@ std::pair<float,std::vector<float>> AntThread(Graph & graph, int num_iterations,
 
     curandState* states;
     gpuErrchk(cudaMalloc((void**)&states, graph.N * sizeof(curandState)));
-    init_rng<<<blocks, threads>>>(states, seed,graph.N);
+    init_rng<<<1, graph.N>>>(states, seed);
 
     float * pheromones;
 
@@ -117,7 +117,9 @@ std::pair<float,std::vector<float>> AntThread(Graph & graph, int num_iterations,
     cudaStreamBeginCapture(stream, cudaStreamCaptureModeGlobal);
     
     TourConstruction_AntThread<<<blocks, threads, local_mem_size,stream>>>(pheromones,graph.gpu_distances, states, tours,graph.N,alpha,beta);
-    DepositPheromones<<<blocks, threads,0,stream>>>(tours,pheromones,graph.gpu_distances,evaporate,graph.N);
+    DepositPheromones<<<1, graph.N,0,stream>>>(tours,pheromones,graph.gpu_distances,evaporate,graph.N);
+    // Deposit Pheromones is called with the single block! The reason is that AtomicAdd is used.
+    // It is atomic only withing the block, it would not work on many blocks.
     
     cudaStreamEndCapture(stream, &cuda_graph);
     
@@ -129,6 +131,7 @@ std::pair<float,std::vector<float>> AntThread(Graph & graph, int num_iterations,
     {
         cudaGraphLaunch(graphExec, stream);
     }
+    cudaStreamSynchronize(stream);
 
     int * tours_cpu;
     tours_cpu = new int[graph.N * graph.N];

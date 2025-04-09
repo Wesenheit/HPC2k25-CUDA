@@ -5,9 +5,8 @@
 
 #include <vector>
 
-__global__ void init_rng(curandState* states, unsigned long seed, int N) {
+__global__ void init_rng(curandState* states, unsigned long seed) {
     int idx = blockIdx.x * blockDim.x + threadIdx.x;
-    if (idx >= N) return;
     curand_init(seed, idx, 0, &states[idx]);
 }
  
@@ -59,12 +58,12 @@ __global__ void DepositPheromones(int * tour, float* pheromones, float* distance
         {
             pheromones[idx * N + num] *= (1.0 - evaporate); //reduce the pheromones
         }
-        
+        __syncthreads();
         current = tour[idx * N];
         for (int num = 0;num < N-1;num++)
         {
             int next = tour[idx * N + num + 1];
-            pheromones[current * N + next] += 1/distances[current * N + next];
+            atomicAdd(&pheromones[current * N + next], 1/distances[current * N + next]);
             current = next;
         }
     }
