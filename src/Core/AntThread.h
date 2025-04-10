@@ -112,7 +112,7 @@ std::pair<float,std::vector<int>> AntThread(Graph & graph, int num_iterations, f
     cudaStreamBeginCapture(stream, cudaStreamCaptureModeGlobal);
     
     TourConstruction_AntThread<<<blocks, threads, local_mem_size,stream>>>(pheromones,distances_processed, states, tours,graph.N,alpha);
-    DepositPheromones<<<1, graph.N,0,stream>>>(tours,pheromones,graph.gpu_distances,evaporate,graph.N);
+    //DepositPheromones<<<1, graph.N,0,stream>>>(tours,pheromones,graph.gpu_distances,evaporate,graph.N);
     // Deposit Pheromones is called with the single block! The reason is that AtomicAdd is used.
     // It is atomic only withing the block, it would not work on many blocks.
     

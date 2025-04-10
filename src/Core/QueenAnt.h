@@ -92,7 +92,7 @@ std::pair<float,std::vector<int>> QueenAnt(Graph & graph, int num_iterations, fl
     cudaStreamBeginCapture(stream, cudaStreamCaptureModeGlobal);
     
     TourConstruction_QueenAnt<<<graph.N, graph.N, local_mem_size,stream>>>(pheromones,distances_processed, states, tours,alpha,biggest_aligned_size);
-    DepositPheromones<<<1, graph.N,0,stream>>>(tours,pheromones,graph.gpu_distances,evaporate,graph.N);
+    //DepositPheromones<<<1, graph.N,0,stream>>>(tours,pheromones,graph.gpu_distances,evaporate,graph.N);
     
     cudaStreamEndCapture(stream, &cuda_graph);
     
