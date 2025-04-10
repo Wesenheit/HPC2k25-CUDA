@@ -30,6 +30,29 @@ public:
     float *gpu_distances;
 
     Graph(std::string &filename);
+
+    float nearest_neigh()
+    {
+        float total_distance = 0;
+        int start = 0;
+        for (int i = 0; i < N; i++)
+        {
+            float distance_min = MAXFLOAT;
+            int idx_min = 0;
+            for (int j = 0; j < N; j++)
+            {
+                if (distances[start * N + j] < distance_min && start != j)
+                {
+                    distance_min = distances[start * N + j];
+                    idx_min = j;
+                }
+            }
+            start = idx_min;
+            total_distance += distance_min;
+        }
+        return total_distance;
+    }
+
     void to_gpu()
     {
         if (in_gpu)
@@ -125,7 +148,7 @@ Graph::Graph(std::string &filename)
         {
             if (i == j)
             {
-                distances[i * N + j] = MAXFLOAT;
+                distances[i * N + j] = 0;
             }
             else
             {
@@ -139,7 +162,7 @@ Graph::Graph(std::string &filename)
     delete[] y_arr;
 }
 
-void save_output(std::string& name,std::pair<float,std::vector<float>>& result)
+void save_output(std::string& name,std::pair<float,std::vector<int>>& result)
 {
     std::ofstream file(name);
     if (!file.is_open())

@@ -3,6 +3,7 @@
 
 #include <cuda_runtime.h>
 
+#include <deque>
 #include <vector>
 
 __global__ void init_rng(curandState* states, unsigned long seed) {
@@ -10,13 +11,30 @@ __global__ void init_rng(curandState* states, unsigned long seed) {
     curand_init(seed, idx, 0, &states[idx]);
 }
  
-__global__ void set_to_one(float* arr, int N) {
+__global__ void set_val(float* arr, float val, int N) {
     int idx = blockIdx.x * blockDim.x + threadIdx.x;
     for (int i = 0; i < N; i++)
     {
-        arr[idx * N + i] = 1.0f;
+        arr[idx * N + i] = val;
     }
 }
+
+__global__ void preprocess_distances(float* distances, float *distance_processed, float beta,int N)
+{
+    int idx = blockIdx.x * blockDim.x + threadIdx.x;
+
+    for (int j = 0; j < N; j++)
+    {
+        if (idx == j)
+        {
+            distance_processed[idx * N + j] = 0;
+        }
+        else{
+            distance_processed[idx * N + j] = powf(distances[idx * N + j], -beta);
+        }
+    }
+}
+
 
 
 __device__ int select_prob(float * prob, int N, curandState * state)
@@ -44,33 +62,29 @@ __global__ void DepositPheromones(int * tour, float* pheromones, float* distance
 {
     float distance = 0;
     int idx = threadIdx.x + blockIdx.x * blockDim.x;
-
-    if (idx < N)
-    {  
-        int current = tour[idx * N];
-        for (int num = 0;num < N-1;num++)
-        {
-            int next = tour[idx * N + num + 1];
-            distance += distances[current * N + next];
-            current = next;
-        }
-        for (int num = 0;num < N;num++)
-        {
-            pheromones[idx * N + num] *= (1.0 - evaporate); //reduce the pheromones
-        }
-        __syncthreads();
-        current = tour[idx * N];
-        for (int num = 0;num < N-1;num++)
-        {
-            int next = tour[idx * N + num + 1];
-            atomicAdd(&pheromones[current * N + next], 1/distances[current * N + next]);
-            current = next;
-        }
+    int current = tour[idx * N];
+    for (int num = 0;num < N-1;num++)
+    {
+        int next = tour[idx * N + num + 1];
+        distance += distances[current * N + next];
+        current = next;
     }
+    for (int num = 0;num < N;num++)
+    {
+        pheromones[idx * N + num] *= (1.0 - evaporate); //reduce the pheromones
+    }
+    __syncthreads();
+    current = tour[idx * N];
+    for (int num = 0;num < N-1;num++)
+    {
+        int next = tour[idx * N + num + 1];
+        atomicAdd(&pheromones[current * N + next], 1/distance);
+        current = next;
+    }
+    
 }
 
-
-std::pair<float,std::vector<float>> get_best_tour(int* &tours_cpu, Graph &graph)
+std::pair<float,std::vector<int>> get_best_tour(int* &tours_cpu, Graph &graph)
 {
     float minimal_distance = MAXFLOAT;
     int idx_of_best_tour = 0;
@@ -91,12 +105,23 @@ std::pair<float,std::vector<float>> get_best_tour(int* &tours_cpu, Graph &graph)
             idx_of_best_tour = idx;
         }
     }
-    std::vector<float> best_tour(graph.N);
+    std::deque<int> best_tour;
     for (int num = 0;num < graph.N;num++)
     {
-        best_tour[num] = tours_cpu[idx_of_best_tour * graph.N + num];
+        best_tour.push_back(tours_cpu[idx_of_best_tour * graph.N + num]);
     }
-    return std::make_pair(minimal_distance, best_tour);
+    while (best_tour.front() != 0)
+    {
+        int first = best_tour.front();
+        best_tour.pop_front();
+        best_tour.push_back(first);
+    }
+    std::vector<int> out;
+    for (auto value : best_tour)
+    {
+        out.push_back(value);
+    }
+    return std::make_pair(minimal_distance, out);
 }
 
 

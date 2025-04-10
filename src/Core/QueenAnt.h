@@ -3,7 +3,7 @@
 
 #include "Common.h"
 
-__global__ void TourConstruction_QueenAnt(float * pheromones, float* distances,curandState* states,int * tours,int N,float alpha, float beta)
+__global__ void TourConstruction_QueenAnt(float * pheromones, float* distances_processed,curandState* states,int * tours,float alpha, int biggest_aligned_size)
 {
     /// N - total size of the graph 
     /// phromones - pheromones on the edges [N*N]
@@ -12,38 +12,41 @@ __global__ void TourConstruction_QueenAnt(float * pheromones, float* distances,c
     /// tours - the tours for each ant [N*N]
     /// alpha - pheromone importance
     /// beta - distance importance
-
+    int N = blockDim.x;
     int idx = blockIdx.x;
     
     extern __shared__ float shared_mem[];
-    int local_size = blockDim.x;
     int * visited = (int * ) shared_mem;
-    float * selection_prob  = (float *) visited + local_size;   
-    int * global_current = (int*) selection_prob + local_size; // global current city
+    float * selection_prob  = (float *) visited + biggest_aligned_size;   
+    int * global_current = (int*) selection_prob + biggest_aligned_size; // global current city
     // not very elegant but works, we are just casting float* to int*
 
     int j = threadIdx.x;
     
+    int current = idx;
     visited[j] = 0;
     selection_prob[j] = 0.0;
-    int current = idx;
-    if (j == 0)
+    if (j == idx)
     {
+        tours[idx * N] = current;
         visited[idx] = 1;
-        tours[idx * N] = idx;
+
     }
+
+    __syncthreads();
     for (int num = 1; num < N; num++)
     {
-        float current_prob = powf(pheromones[current * N + j], alpha) * powf(distances[current * N + j], -beta);
+        float current_prob = powf(pheromones[current * N + j], alpha) * distances_processed[current * N + j];
 
         selection_prob[j] = (visited[j] > 0) ? 0.0 : current_prob; // only if not visited
 
         __syncthreads();
         if (j == 0) //only "master ant" will select the next city
         {
-            *global_current = select_prob(selection_prob, N, &states[idx]);
+            current = select_prob(selection_prob, N, &states[idx]);
+            tours[idx * N + num] = current; // which city we are in
+            *global_current = current;
             visited[current] = 1;
-            tours[idx * N + num] = *global_current; // which city we are in
         }
         __syncthreads();
         current = *global_current; // save global current city to each worker ant
@@ -52,13 +55,14 @@ __global__ void TourConstruction_QueenAnt(float * pheromones, float* distances,c
 
 
 
-std::pair<float,std::vector<float>> QueenAnt(Graph & graph, int num_iterations, float alpha, float beta, float evaporate, unsigned long seed)
+std::pair<float,std::vector<int>> QueenAnt(Graph & graph, int num_iterations, float alpha, float beta, float evaporate, unsigned long seed)
 {
     cudaDeviceProp prop;
     cudaGetDeviceProperties(&prop, 0);
 
     size_t local_mem_size;
-    local_mem_size = (graph.N * sizeof(float) + graph.N * sizeof(int) + sizeof(int)); // two arrays of size N
+    int biggest_aligned_size = (graph.N / 4 + 1 )*4;
+    local_mem_size = (biggest_aligned_size * sizeof(float) + biggest_aligned_size * sizeof(int) + 4*sizeof(int)); // two arrays of size N
     
     assert(prop.sharedMemPerBlock > local_mem_size);
 
@@ -69,13 +73,14 @@ std::pair<float,std::vector<float>> QueenAnt(Graph & graph, int num_iterations, 
     init_rng<<<1, graph.N>>>(states, seed);
 
     float * pheromones;
-
+    float * distances_processed;
     int * tours;
 
     gpuErrchk(cudaMalloc((void**)&tours, graph.N *graph.N*sizeof(int)));
     gpuErrchk(cudaMalloc((void**)&pheromones, graph.N * graph.N * sizeof(float)));
-    set_to_one<<<graph.N,1>>>(pheromones, graph.N);
-
+    gpuErrchk(cudaMalloc((void**)&distances_processed, graph.N * graph.N * sizeof(float)));
+    set_val<<<graph.N,1>>>(pheromones, 1/(graph.nearest_neigh() * graph.N),graph.N);
+    preprocess_distances<<<1,graph.N>>>(graph.gpu_distances, distances_processed, beta, graph.N);
 
     /*
         Lets create a graph with the kernel calls
@@ -86,7 +91,7 @@ std::pair<float,std::vector<float>> QueenAnt(Graph & graph, int num_iterations, 
     cudaGraph_t cuda_graph;
     cudaStreamBeginCapture(stream, cudaStreamCaptureModeGlobal);
     
-    TourConstruction_QueenAnt<<<graph.N, graph.N, local_mem_size,stream>>>(pheromones,graph.gpu_distances, states, tours,graph.N,alpha,beta);
+    TourConstruction_QueenAnt<<<graph.N, graph.N, local_mem_size,stream>>>(pheromones,distances_processed, states, tours,alpha,biggest_aligned_size);
     DepositPheromones<<<1, graph.N,0,stream>>>(tours,pheromones,graph.gpu_distances,evaporate,graph.N);
     
     cudaStreamEndCapture(stream, &cuda_graph);
@@ -110,6 +115,7 @@ std::pair<float,std::vector<float>> QueenAnt(Graph & graph, int num_iterations, 
 
     delete[] tours_cpu;
     gpuErrchk(cudaFree(states));
+    gpuErrchk(cudaFree(distances_processed));
     gpuErrchk(cudaFree(pheromones));
     gpuErrchk(cudaFree(tours));
 

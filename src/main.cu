@@ -17,6 +17,7 @@ int main(int argc, const char* argv[])
     double evaporate = std::stod(argv[7]);
     unsigned long seed = std::stol(argv[8]);
     auto input = Graph(inputFile);
+
     input.to_gpu();
     if (type == "WORKER")
     {
