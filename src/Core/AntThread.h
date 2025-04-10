@@ -10,7 +10,7 @@
 #include <cassert>
 #include <vector>
 
-__global__ void TourConstruction_AntThread(float * pheromones, float* distances_processed,curandState* states,int * tours,int N,float alpha, float beta)
+__global__ void TourConstruction_AntThread(float * pheromones, float* distances_processed,curandState* states,int * tours,int N,float alpha)
 {
     /// N - total size of the graph 
     /// phromones - pheromones on the edges [N*N]
@@ -23,8 +23,7 @@ __global__ void TourConstruction_AntThread(float * pheromones, float* distances_
     int idx = threadIdx.x + blockIdx.x * blockDim.x;
     int local_idx = threadIdx.x; //local idx in group
     if (idx < N)
-    {
-    
+    { 
         extern __shared__ float shared_mem[];
         int local_size = blockDim.x * N;
         float * visited = shared_mem;
@@ -64,7 +63,7 @@ std::pair<float,std::vector<int>> AntThread(Graph & graph, int num_iterations, f
     dim3 blocks;
     dim3 threads;
     size_t local_mem_size;
-    
+
     while (true)
     {
         // Memory requirements for this method are enorumous
@@ -112,7 +111,7 @@ std::pair<float,std::vector<int>> AntThread(Graph & graph, int num_iterations, f
     cudaGraph_t cuda_graph;
     cudaStreamBeginCapture(stream, cudaStreamCaptureModeGlobal);
     
-    TourConstruction_AntThread<<<blocks, threads, local_mem_size,stream>>>(pheromones,distances_processed, states, tours,graph.N,alpha,beta);
+    TourConstruction_AntThread<<<blocks, threads, local_mem_size,stream>>>(pheromones,distances_processed, states, tours,graph.N,alpha);
     DepositPheromones<<<1, graph.N,0,stream>>>(tours,pheromones,graph.gpu_distances,evaporate,graph.N);
     // Deposit Pheromones is called with the single block! The reason is that AtomicAdd is used.
     // It is atomic only withing the block, it would not work on many blocks.
