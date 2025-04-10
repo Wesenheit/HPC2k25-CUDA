@@ -79,7 +79,7 @@ std::pair<float,std::vector<int>> QueenAnt(Graph & graph, int num_iterations, fl
     gpuErrchk(cudaMalloc((void**)&tours, graph.N *graph.N*sizeof(int)));
     gpuErrchk(cudaMalloc((void**)&pheromones, graph.N * graph.N * sizeof(float)));
     gpuErrchk(cudaMalloc((void**)&distances_processed, graph.N * graph.N * sizeof(float)));
-    set_val<<<graph.N,1>>>(pheromones, 1/(graph.nearest_neigh() * graph.N),graph.N);
+    set_val<<<graph.N,1>>>(pheromones, 1/graph.nearest_neigh(),graph.N);
     preprocess_distances<<<1,graph.N>>>(graph.gpu_distances, distances_processed, beta, graph.N);
 
     /*

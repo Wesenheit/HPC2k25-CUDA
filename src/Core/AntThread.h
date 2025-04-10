@@ -57,7 +57,7 @@ __global__ void TourConstruction_AntThread(float * pheromones, float* distances_
 
 std::pair<float,std::vector<int>> AntThread(Graph & graph, int num_iterations, float alpha, float beta, float evaporate, unsigned long seed)
 {
-    int threads_per_block = 1024;
+    int threads_per_block = 512;
     cudaDeviceProp prop;
     cudaGetDeviceProperties(&prop, 0);
     dim3 blocks;
@@ -98,7 +98,7 @@ std::pair<float,std::vector<int>> AntThread(Graph & graph, int num_iterations, f
     gpuErrchk(cudaMalloc((void**)&pheromones, graph.N * graph.N * sizeof(float)));
     gpuErrchk(cudaMalloc((void**)&distances_processed, graph.N * graph.N * sizeof(float)));
 
-    set_val<<<graph.N,1>>>(pheromones, 1/(graph.nearest_neigh() * graph.N),graph.N);
+    set_val<<<graph.N,1>>>(pheromones, 1/graph.nearest_neigh(),graph.N);
     preprocess_distances<<<1,graph.N>>>(graph.gpu_distances, distances_processed, beta, graph.N);
 
 
