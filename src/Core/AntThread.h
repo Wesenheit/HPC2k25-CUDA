@@ -3,17 +3,17 @@
 #include "../GraphUtils/Graph.h"
 #include "../GraphUtils/Utils.h"
 #include "Common.h"
-
+#include "Pheromones.h"
 
 #include <cuda_runtime.h>
 #include <curand_kernel.h>
 #include <cassert>
 #include <vector>
 
-__global__ void TourConstruction_AntThread(float * pheromones, float* distances_processed,curandState* states,int * tours,int N,float alpha)
+__global__ void TourConstruction_AntThread(float * pheromones, float* distances_processed, curandState* states, int * tours, int N, float alpha)
 {
     /// N - total size of the graph 
-    /// phromones - pheromones on the edges [N*N]
+    /// pheromones - pheromones on the edges [N*N]
     /// distances - distances between the cities [N*N]
     /// states - random states for each thread
     /// tours - the tours for each ant [N*N]
@@ -44,7 +44,7 @@ __global__ void TourConstruction_AntThread(float * pheromones, float* distances_
             for (int j = 0; j < N; j++)
             {
 
-                float current_prob = powf(pheromones[current * N + j],alpha) * distances_processed[current * N + j];
+                float current_prob = __powf(pheromones[current * N + j],alpha) * distances_processed[current * N + j];
                 selection_prob[local_idx * N + j] = (visited[local_idx * N + j] > 0) ? 0.0 : current_prob; // only if not visited
             }
             current = select_prob(&selection_prob[local_idx * N], N, &states[idx]);
@@ -66,7 +66,7 @@ std::pair<float,std::vector<int>> AntThread(Graph & graph, int num_iterations, f
 
     while (true)
     {
-        // Memory requirements for this method are enorumous
+        // Memory requirements for this method are enormous
         // in order to always solve the problem we need to limit the number of threads
         // to do so, let's decrease the number of threads per block until the solution is found
         threads = dim3(threads_per_block);
@@ -93,12 +93,14 @@ std::pair<float,std::vector<int>> AntThread(Graph & graph, int num_iterations, f
     float * pheromones;
     float * distances_processed;
     int * tours;
+    Deposits* deposits;
 
-    gpuErrchk(cudaMalloc((void**)&tours, graph.N *graph.N*sizeof(int)));
+    gpuErrchk(cudaMalloc((void**)&deposits, graph.N * graph.N * sizeof(Deposits)));
+    gpuErrchk(cudaMalloc((void**)&tours, graph.N * graph.N * sizeof(int)));
     gpuErrchk(cudaMalloc((void**)&pheromones, graph.N * graph.N * sizeof(float)));
     gpuErrchk(cudaMalloc((void**)&distances_processed, graph.N * graph.N * sizeof(float)));
 
-    set_val<<<graph.N,1>>>(pheromones, 1/graph.nearest_neigh(),graph.N);
+    set_val<<<graph.N,1>>>(pheromones, 1 / graph.nearest_neigh(), graph.N);
     preprocess_distances<<<1,graph.N>>>(graph.gpu_distances, distances_processed, beta, graph.N);
 
 
@@ -111,8 +113,10 @@ std::pair<float,std::vector<int>> AntThread(Graph & graph, int num_iterations, f
     cudaGraph_t cuda_graph;
     cudaStreamBeginCapture(stream, cudaStreamCaptureModeGlobal);
     
-    TourConstruction_AntThread<<<blocks, threads, local_mem_size,stream>>>(pheromones,distances_processed, states, tours,graph.N,alpha);
-    //DepositPheromones<<<1, graph.N,0,stream>>>(tours,pheromones,graph.gpu_distances,evaporate,graph.N);
+    TourConstruction_AntThread<<<blocks, threads, local_mem_size,stream>>>(pheromones,distances_processed, states, tours, graph.N, alpha);
+    ReducePheromones<<<1, graph.N,0,stream>>>(pheromones,evaporate,graph.N);
+    ConstructDeposits<<<1, graph.N,0,stream>>>(tours,deposits,graph.gpu_distances,graph.N);
+    DeposePheromones<<<graph.N, graph.N,0,stream>>>(deposits,pheromones,graph.N);
     // Deposit Pheromones is called with the single block! The reason is that AtomicAdd is used.
     // It is atomic only withing the block, it would not work on many blocks.
     
@@ -140,6 +144,7 @@ std::pair<float,std::vector<int>> AntThread(Graph & graph, int num_iterations, f
     gpuErrchk(cudaFree(pheromones));
     gpuErrchk(cudaFree(tours));
     gpuErrchk(cudaFree(distances_processed));
+    gpuErrchk(cudaFree(deposits));
 
     return out;
 }

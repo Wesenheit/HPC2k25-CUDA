@@ -57,31 +57,92 @@ __device__ int select_prob(float * prob, int N, curandState * state)
     return -1; // Should not reach here
 }
 
-
-__global__ void DepositPheromones(int * tour, float* pheromones, float* distances,float evaporate,int N)
+template <typename T, T (*op)(T, T)>
+__device__ void ParallelScan(T* arr, T* warps, int N)
 {
-    float distance = 0;
-    int idx = threadIdx.x + blockIdx.x * blockDim.x;
-    int current = tour[idx * N];
-    for (int num = 0;num < N-1;num++)
-    {
-        int next = tour[idx * N + num + 1];
-        distance += distances[current * N + next];
-        current = next;
-    }
-    for (int num = 0;num < N;num++)
-    {
-        pheromones[idx * N + num] *= (1.0 - evaporate); //reduce the pheromones
-    }
-    __syncthreads();
-    current = tour[idx * N];
-    for (int num = 0;num < N-1;num++)
-    {
-        int next = tour[idx * N + num + 1];
-        atomicAdd(&pheromones[current * N + next], 1/distance);
-        current = next;
+    // Thread identification
+    int tid = threadIdx.x;
+    int lane_id = tid % 32;
+    int warp_id = tid / 32;
+    unsigned mask = __activemask();
+    
+    T thread_val = (tid < N) ? arr[tid] : 0;
+    T original_val = thread_val;
+    
+    T warp_sum = thread_val;
+    #pragma unroll
+    for (int offset = 1; offset < 32; offset *= 2) {
+        T temp = __shfl_up_sync(mask, warp_sum, offset);
+        if (lane_id >= offset) {
+            warp_sum = op(temp, warp_sum);
+        }
     }
     
+    if (lane_id == 31) {
+        warps[warp_id] = warp_sum;
+    }
+    __syncthreads();
+    
+    if (warp_id == 0 && lane_id < (N + 31) / 32) {
+        T temp_val = warps[lane_id];
+        
+        T scan_val = temp_val;
+        for (int i = 0; i < lane_id; i++) {
+            T prev_val = warps[i];
+            scan_val = op(prev_val, scan_val);
+        }
+        
+        warps[lane_id] = scan_val;
+    }
+    __syncthreads();
+    
+    T scan_result;
+    if (warp_id == 0) {
+        scan_result = warp_sum;
+    } else {
+        T warp_prefix = warps[warp_id - 1];   
+        scan_result = op(warp_prefix, warp_sum);
+    }    
+    if (tid < N) {
+        arr[tid] = scan_result;
+    }
+}
+
+
+template <typename T, T (*op)(T, T)>
+__device__ void ParallelReduce(T * arr, T * warps, int N)
+{
+    int j = threadIdx.x;
+    int lane_id = j % 32;
+    int warp_id = j / 32;
+    unsigned mask = __activemask();
+
+    T value = arr[j];
+
+    #pragma unroll
+    for (int offset = 16; offset > 0; offset /= 2)
+    {
+        value = op(__shfl_down_sync(mask, value, offset),value);
+    }
+    __syncthreads();
+
+    if (lane_id == 0)
+    {
+        warps[warp_id] = value;
+    }
+    __syncthreads();
+
+    if (warp_id == 0)
+    {
+        value = (j < (N / 32)) ? warps[lane_id] : N;
+    
+        #pragma unroll
+        for (int offset = 16; offset > 0; offset /= 2)
+        {
+            value = op(__shfl_down_sync(mask, value, offset),value);
+        }
+        warps[lane_id] = value; 
+    }
 }
 
 std::pair<float,std::vector<int>> get_best_tour(int* &tours_cpu, Graph &graph)
@@ -125,4 +186,4 @@ std::pair<float,std::vector<int>> get_best_tour(int* &tours_cpu, Graph &graph)
 }
 
 
-#endif // COMMON_H)
+#endif

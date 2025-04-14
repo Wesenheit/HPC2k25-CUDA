@@ -16,5 +16,8 @@ inline void gpuAssert(cudaError_t code, const char *file, int line, bool abort=t
    }
 }
 
+__device__ float add_op(float a, float b) {
+   return a + b;
+}
 
 #endif // UTILS_H
