@@ -30,7 +30,7 @@ __global__ void ConstructDeposits(int * tour, Deposits* array, float* distances,
         int next = tour[idx * N + num + 1];
         array[idx * N + num].i = current;
         array[idx * N + num].j = next;
-        array[idx * N + num].load = 1.0f / distance;    
+        array[idx * N + num].load = 1.0 / distance;    
         current = next;
     }
 }
@@ -39,7 +39,7 @@ template<typename T>
 __device__ void load_local(T * local, T * array, int size_to_load, int num_threads,int offset, int max_size)
 {
     int index = threadIdx.x;
-    while (index < size_to_load && index + offset< max_size)
+    while (index < size_to_load && index + offset < max_size)
     {
         local[index] = array[offset + index];
         index += num_threads;
@@ -56,7 +56,7 @@ __global__ void DeposePheromones(Deposits* array, float* pheromones, int N)
     {
         load_local(local, array, tile_size, blockDim.x, idx, N*N);
         __syncthreads();
-        for (int idx_loc = 0;idx_loc < tile_size;idx_loc++)
+        for (int idx_loc = 0; idx_loc < tile_size && idx + idx_loc < N*N; idx_loc++)
         {
             if ((local[idx_loc].i == i && local[idx_loc].j == j) || (local[idx_loc].i == j && local[idx_loc].j == i))
             {

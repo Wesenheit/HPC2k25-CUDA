@@ -60,7 +60,7 @@ __global__ void TourConstruction_QueenAntOptimized(float * pheromones, float* di
         __syncthreads();
 
         if (j == 0){
-            float random = curand_uniform(&states[idx]) * selection_prob[N-1];
+            float random = curand_uniform(&states[idx]) * selection_prob[biggest_aligned_size-1];
             * number_to_find = random;
         }
 
