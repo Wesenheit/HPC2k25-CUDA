@@ -19,3 +19,7 @@ where
 5. ALPHA,BETA -> hyperparameters for pheromones,
 6. EVAPORATE -> rate at which the pheromones evaporate,
 7. SEED -> seed used for the simulations.
+
+# Tests
+You can ran run_all.py program that will automatically test the program using some of the test problems with solutions, 
+all of which were taken from this [github repository](https://github.com/mastqe/tsplib/blob/master/solutions).
