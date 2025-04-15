@@ -22,13 +22,13 @@ __global__ void TourConstruction_AntThread(float * pheromones, float* distances_
 
     int idx = threadIdx.x + blockIdx.x * blockDim.x;
     int local_idx = threadIdx.x; //local idx in group
+    int local_size = blockDim.x * N;
+
+    extern __shared__ float shared_mem[];
+    float * visited = shared_mem;
+    float * selection_prob  = &visited[local_size];
     if (idx < N)
     { 
-        extern __shared__ float shared_mem[];
-        int local_size = blockDim.x * N;
-        float * visited = shared_mem;
-        float * selection_prob  = &visited[local_size];
-    
         for (int i = 0; i < N; i++)
         {
             visited[local_idx * N + i] = 0.0;
@@ -38,7 +38,6 @@ __global__ void TourConstruction_AntThread(float * pheromones, float* distances_
         visited[local_idx * N + idx] = 1.0; // mark the current city as visited
     
         int current = idx; // we are starting from the current city
-    
         for (int num = 1; num < N; num++)
         {
             for (int j = 0; j < N; j++)
@@ -103,7 +102,6 @@ std::pair<float,std::vector<int>> AntThread(Graph & graph, int num_iterations, f
     set_val<<<graph.N,1>>>(pheromones, 1 / graph.nearest_neigh(), graph.N);
     preprocess_distances<<<1,graph.N>>>(graph.gpu_distances, distances_processed, beta, graph.N);
 
-
     /*
         Lets create a graph with the kernel calls
     */
@@ -117,8 +115,6 @@ std::pair<float,std::vector<int>> AntThread(Graph & graph, int num_iterations, f
     ReducePheromones<<<1, graph.N,0,stream>>>(pheromones,evaporate,graph.N);
     ConstructDeposits<<<1, graph.N,0,stream>>>(tours,deposits,graph.gpu_distances,graph.N);
     DeposePheromones<<<graph.N, graph.N,0,stream>>>(deposits,pheromones,graph.N);
-    // Deposit Pheromones is called with the single block! The reason is that AtomicAdd is used.
-    // It is atomic only withing the block, it would not work on many blocks.
     
     cudaStreamEndCapture(stream, &cuda_graph);
     
