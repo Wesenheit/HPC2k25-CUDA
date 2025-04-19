@@ -14,3 +14,4 @@ acotsp
 .vscode
 *.dat
 *.ncu-rep
+*.json

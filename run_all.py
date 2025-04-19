@@ -4,6 +4,7 @@ import os
 import time 
 from itertools import product
 import subprocess
+import json
 
 def run_all(args):
     print(args)
@@ -14,6 +15,8 @@ def run_all(args):
             name,solution = line.split(":")
             solutions_dict[name.strip()] = int(solution)
     parameters = product(names,["WORKER","QUEEN"])
+
+    out_dict = {}
     for name,type in parameters:
         start = time.time()
         subprocess.run(" ./acotsp {} out.dat {} {} {} {} {} {}".format(
@@ -28,9 +31,11 @@ def run_all(args):
         end = time.time()
         with open("out.dat") as f:
             solution = float(f.readline())
-
+        out_dict[(name,type)] = (end-start,solution)
         print("{} {}: {:.4g} seconds, obtained {}, best known {}".format(type, name, end - start,solution,solutions_dict[name.split("/")[-1][:-4]]))
-
+    json_compatible_dict = {str(k): v for k, v in out_dict.items()}
+    with open(args.output,"w") as f:
+        json.dump(json_compatible_dict,f)
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Run all examples")
@@ -58,6 +63,11 @@ if __name__ == "__main__":
         "--max_iter",
         type=int,
         default=100,
+    )
+    parser.add_argument(
+        "--output",
+        type=str,
+        default="out.json",
     )
     args = parser.parse_args()
     run_all(args)
