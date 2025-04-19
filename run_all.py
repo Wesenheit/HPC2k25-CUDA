@@ -34,7 +34,7 @@ def run_all(args):
         out_dict[(name,type)] = (end-start,solution)
         print("{} {}: {:.4g} seconds, obtained {}, best known {}".format(type, name, end - start,solution,solutions_dict[name.split("/")[-1][:-4]]))
     json_compatible_dict = {str(k): v for k, v in out_dict.items()}
-    with open(args.output,"w") as f:
+    with open(args.output+".json","w") as f:
         json.dump(json_compatible_dict,f)
 
 if __name__ == "__main__":
@@ -62,7 +62,7 @@ if __name__ == "__main__":
     parser.add_argument(
         "--max_iter",
         type=int,
-        default=100,
+        default=500,
     )
     parser.add_argument(
         "--output",
