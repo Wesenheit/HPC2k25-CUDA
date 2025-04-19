@@ -67,7 +67,7 @@ if __name__ == "__main__":
     parser.add_argument(
         "--output",
         type=str,
-        default="out.json",
+        required=True,
     )
     args = parser.parse_args()
     run_all(args)
