@@ -55,7 +55,7 @@ __global__ void TourConstruction_QueenAntOptimized(float * pheromones, float* di
         __syncthreads();
 
         //now lets proceed with the selection using parallel scan
-        ParallelScan<float,add_op>(selection_prob, warp_sums, biggest_aligned_size);
+        ParallelScan<float,add_op>(selection_prob, warp_sums, biggest_aligned_size,0.0);
 
         __syncthreads();
 
@@ -71,7 +71,7 @@ __global__ void TourConstruction_QueenAntOptimized(float * pheromones, float* di
 
         __syncthreads();
 
-        ParallelReduce<float,min>(selection_prob, warp_sums, biggest_aligned_size);
+        ParallelReduce<float,min>(selection_prob, warp_sums, biggest_aligned_size,biggest_aligned_size);
 
         __syncthreads();
 

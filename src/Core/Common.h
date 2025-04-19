@@ -51,14 +51,14 @@ __device__ int select_prob(float * prob, int N, curandState * state)
        cumulative_sum += prob[i];
        if (cumulative_sum >= random)
        {
-          return i;
+           return i;
        }
     }
     return -1; // Should not reach here
 }
 
 template <typename T, T (*op)(T, T)>
-__device__ void ParallelScan(T* arr, T* warps, int N)
+__device__ void ParallelScan(T* arr, T* warps, int N, T missing)
 {
     // Thread identification
     int tid = threadIdx.x;
@@ -66,7 +66,7 @@ __device__ void ParallelScan(T* arr, T* warps, int N)
     int warp_id = tid / 32;
     unsigned mask = __activemask();
     
-    T thread_val = (tid < N) ? arr[tid] : 0;
+    T thread_val = (tid < N) ? arr[tid] : missing;
     T original_val = thread_val;
     
     T warp_sum = thread_val;
@@ -110,7 +110,7 @@ __device__ void ParallelScan(T* arr, T* warps, int N)
 
 
 template <typename T, T (*op)(T, T)>
-__device__ void ParallelReduce(T * arr, T * warps, int N)
+__device__ void ParallelReduce(T * arr, T * warps, int N, T missing)
 {
     int j = threadIdx.x;
     int lane_id = j % 32;
@@ -134,7 +134,7 @@ __device__ void ParallelReduce(T * arr, T * warps, int N)
 
     if (warp_id == 0)
     {
-        value = (j < (N / 32)) ? warps[lane_id] : N;
+        value = (j < (N / 32)) ? warps[lane_id] : missing;
     
         #pragma unroll
         for (int offset = 16; offset > 0; offset /= 2)
