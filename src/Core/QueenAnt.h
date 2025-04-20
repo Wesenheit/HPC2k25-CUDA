@@ -17,11 +17,11 @@ __global__ void TourConstruction_QueenAntOptimized(float * pheromones, float* di
     int idx = blockIdx.x;
     
     extern __shared__ float shared_mem[];
-    int * visited = (int * ) shared_mem;
-    float * selection_prob  = (float *) visited + biggest_aligned_size;  
+    float * selection_prob  = (float *) shared_mem;  
     float * warp_sums = (float * ) selection_prob + biggest_aligned_size; // used for reduction 
     int * global_current = (int*) warp_sums + 32; // global current city
     float * number_to_find = (float*) global_current + 1; // used for reduction
+    int16_t * visited = (int16_t * ) global_current + 4;
     // not very elegant but works, we are just casting float* to int*
 
     int j = threadIdx.x;
@@ -96,7 +96,7 @@ std::pair<float,std::vector<int>> QueenAnt(Graph & graph, int num_iterations, fl
     size_t local_mem_size;
     int biggest_aligned_size = (graph.N + 31) & ~31;
     local_mem_size = (biggest_aligned_size * sizeof(float) +
-                      biggest_aligned_size * sizeof(int) +
+                      biggest_aligned_size * sizeof(uint16_t) +
                       32 * sizeof(float) + 
                       4*sizeof(int)); // two arrays of size N
 

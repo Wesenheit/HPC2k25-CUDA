@@ -152,9 +152,31 @@ Graph::Graph(std::string &filename)
             }
             else
             {
-                float dx = x_arr[i] - x_arr[j];
-                float dy = y_arr[i] - y_arr[j];
-                distances[i * N + j] = sqrt(dx * dx + dy * dy);
+                if (edge_type == EUC_2D)
+                {
+                    float dx = x_arr[i] - x_arr[j];
+                    float dy = y_arr[i] - y_arr[j];
+                    distances[i * N + j] = sqrt(dx * dx + dy * dy);
+                }
+                else if (edge_type == CEIL_2D)
+                {
+                    float dx = x_arr[i] - x_arr[j];
+                    float dy = y_arr[i] - y_arr[j];
+                    distances[i * N + j] = std::ceil(sqrt(dx * dx + dy * dy));
+                }
+                else
+                {
+                        float latitude1 = ConvertToRadian(x_arr[i]);
+                        float longitude1 = ConvertToRadian(y_arr[i]);
+                        float latitude2 = ConvertToRadian(x_arr[j]);
+                        float longitude2 = ConvertToRadian(y_arr[j]);
+
+                        float q1 = cos(longitude1 - longitude2);
+                        float q2 = cos(latitude1 - latitude2);
+                        float q3 = cos(latitude1 + latitude2);
+                        distances[i * N + j]= 6378.388 * acos(0.5 * ((1.0 + q1) * q2 - (1.0 - q1) * q3)) + 1.0;
+
+                }
             }
         }
     }

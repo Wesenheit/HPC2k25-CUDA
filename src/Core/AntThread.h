@@ -25,8 +25,8 @@ __global__ void TourConstruction_AntThread(float * pheromones, float* distances_
     int local_size = blockDim.x * N;
 
     extern __shared__ float shared_mem[];
-    char * visited = (char *) shared_mem;
-    float * selection_prob  = &visited[local_size];
+    float * selection_prob  = (float *) shared_mem;
+    uint8_t * visited = (uint8_t *) (selection_prob + local_size);
     if (idx < N)
     { 
         for (int i = 0; i < N; i++)
@@ -70,7 +70,7 @@ std::pair<float,std::vector<int>> AntThread(Graph & graph, int num_iterations, f
         // to do so, let's decrease the number of threads per block until the solution is found
         threads = dim3(threads_per_block);
         blocks = dim3((graph.N + threads.x - 1) / threads.x);
-        local_mem_size = threads.x * graph.N * (sizeof(float)  + sizeof(char));
+        local_mem_size = threads.x * graph.N * (sizeof(float)  + sizeof(uint8_t));
         if (prop.sharedMemPerBlock > local_mem_size)
         {
             break;

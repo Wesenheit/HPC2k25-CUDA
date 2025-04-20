@@ -3,6 +3,7 @@
 
 #include <cuda_runtime.h>
 #include <curand_kernel.h>
+#include <cmath>
 
 //CURAND routines
 
@@ -19,5 +20,13 @@ inline void gpuAssert(cudaError_t code, const char *file, int line, bool abort=t
 __device__ float add_op(float a, float b) {
    return a + b;
 }
+
+template<typename T>
+double ConvertToRadian(T coord) {
+    int deg = static_cast<int>(coord);
+    T min = coord - deg;
+    return M_PI * (deg + 5.0 * min / 3.0) / 180.0;
+}
+
 
 #endif // UTILS_H
