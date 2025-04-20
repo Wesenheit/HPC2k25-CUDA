@@ -8,7 +8,3 @@ find_package(CUDAToolkit REQUIRED) #cuda
 add_executable(acotsp src/main.cu)
 
 target_include_directories(acotsp PRIVATE ${CUDAToolkit_INCLUDE_DIRS})
-
-target_compile_options(acotsp PRIVATE 
-    $<$<COMPILE_LANGUAGE:CUDA>: -allow-unsupported-compiler>
-)
