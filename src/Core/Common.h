@@ -5,6 +5,7 @@
 
 #include <deque>
 #include <vector>
+#include <float.h>
 
 __global__ void init_rng(curandState* states, unsigned long seed) {
     int idx = blockIdx.x * blockDim.x + threadIdx.x;
@@ -30,7 +31,8 @@ __global__ void preprocess_distances(float* distances, float *distance_processed
             distance_processed[idx * N + j] = 0;
         }
         else{
-            distance_processed[idx * N + j] = powf(distances[idx * N + j], -beta);
+            float processed = __powf(distances[idx * N + j],-beta);
+            distance_processed[idx * N + j] = isinf(processed) ? FLT_MAX : processed;
         }
     }
 }

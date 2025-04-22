@@ -22,7 +22,12 @@ __global__ void TourConstruction_QueenAntOptimized(float * pheromones, float* di
     int * global_current = (int*) warp_sums + 32; // global current city
     float * number_to_find = (float*) global_current + 1; // used for reduction
     int16_t * visited = (int16_t * ) global_current + 4;
-    // not very elegant but works, we are just casting float* to int*
+    // not very elegant but works
+    
+    int * selection_prob_int = (int *) selection_prob;
+    int * warp_sums_int = (int *) warp_sums;
+    // int versions of the same storage, used for parallel reduce
+
 
     int j = threadIdx.x;
     unsigned mask = __activemask();
@@ -41,6 +46,7 @@ __global__ void TourConstruction_QueenAntOptimized(float * pheromones, float* di
     for (int num = 1; num < N; num++)
     {
         float current_prob ;
+        // Step 1: compute probabilities
         if (j < N)
         {
             current_prob = __powf(pheromones[current * N + j], alpha) * distances_processed[current * N + j];
@@ -53,30 +59,30 @@ __global__ void TourConstruction_QueenAntOptimized(float * pheromones, float* di
         selection_prob[j] = (visited[j] > 0) ? 0.0 : current_prob; // only if not visited
 
         __syncthreads();
-
-        //now lets proceed with the selection using parallel scan
+        
+        //Step 2: proceed with the selection using parallel scan
         ParallelScan<float,add_op>(selection_prob, warp_sums, biggest_aligned_size,0.0);
 
         __syncthreads();
-
+        // Step 3: select the random number 
         if (j == 0){
             float random = curand_uniform(&states[idx]) * selection_prob[N-1];
             * number_to_find = random;
         }
 
         __syncthreads();
-        
+        // Step 4: Find minimal index that is bigger than threshold using parallel reduce
         float random = *number_to_find;
-        selection_prob[j] = (selection_prob[j] >= random) ? (float) j : biggest_aligned_size;
+        selection_prob_int[j] = (selection_prob[j] >= random) ? j : biggest_aligned_size;
 
         __syncthreads();
 
-        ParallelReduce<float,min>(selection_prob, warp_sums, biggest_aligned_size,biggest_aligned_size);
+        ParallelReduce<int,min>(selection_prob_int, warp_sums_int, biggest_aligned_size,biggest_aligned_size);
 
         __syncthreads();
-
+        // Step 5: select next city
         if (j == 0){
-            current = (int) warp_sums[0];
+            current = warp_sums_int[0];
             tours[idx * N + num] = current; // which city we are in
             *global_current = current;
             visited[current] = 1;
