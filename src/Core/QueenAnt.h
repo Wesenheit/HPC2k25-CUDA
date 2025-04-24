@@ -3,6 +3,7 @@
 
 #include "Common.h"
 #include "Pheromones.h"
+#include <cstdint>
 
 __global__ void TourConstruction_QueenAntOptimized(float *pheromones,
                                                    float *distances_processed,

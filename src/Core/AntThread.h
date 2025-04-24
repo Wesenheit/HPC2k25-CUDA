@@ -6,6 +6,7 @@
 #include "Pheromones.h"
 
 #include <cassert>
+#include <cstdint>
 #include <cuda_runtime.h>
 #include <curand_kernel.h>
 #include <vector>
