@@ -131,6 +131,7 @@ std::pair<float, std::vector<int>> QueenAnt(Graph &graph, int num_iterations,
   preprocess_distances<<<1, graph.N>>>(graph.gpu_distances, distances_processed,
                                        beta, graph.N);
 
+  size_t shared_tile_size = FindTileSize(prop);
   /*
       Lets create a graph with the kernel calls
   */
@@ -146,8 +147,8 @@ std::pair<float, std::vector<int>> QueenAnt(Graph &graph, int num_iterations,
   ReducePheromones<<<1, graph.N, 0, stream>>>(pheromones, evaporate, graph.N);
   ConstructDeposits<<<1, graph.N, 0, stream>>>(tours, deposits,
                                                graph.gpu_distances, graph.N);
-  DeposePheromones<<<graph.N, graph.N, 0, stream>>>(deposits, pheromones,
-                                                    graph.N);
+  DepositPheromones<<<graph.N, graph.N, shared_tile_size * sizeof(Deposits), stream>>>(deposits, pheromones,
+                                                    graph.N, shared_tile_size);
 
   cudaStreamEndCapture(stream, &cuda_graph);
 

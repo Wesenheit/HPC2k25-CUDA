@@ -70,7 +70,8 @@ std::pair<float, std::vector<int>> AntThread(Graph &graph, int num_iterations,
   while (true) {
     // Memory requirements for this method are enormous
     // in order to always solve the problem we need to limit the number of
-    // threads to do so, let's decrease the number of threads per block until
+    // threads.
+    //to do so, let's decrease the number of threads per block until
     // the solution is found
     threads = dim3(threads_per_block);
     blocks = dim3((graph.N + threads.x - 1) / threads.x);
@@ -106,6 +107,7 @@ std::pair<float, std::vector<int>> AntThread(Graph &graph, int num_iterations,
   preprocess_distances<<<1, graph.N>>>(graph.gpu_distances, distances_processed,
                                        beta, graph.N);
 
+  size_t shared_tile_size = FindTileSize(prop);
   /*
       Lets create a graph with the kernel calls
   */
@@ -114,14 +116,13 @@ std::pair<float, std::vector<int>> AntThread(Graph &graph, int num_iterations,
 
   cudaGraph_t cuda_graph;
   cudaStreamBeginCapture(stream, cudaStreamCaptureModeGlobal);
-
   TourConstruction_AntThread<<<blocks, threads, local_mem_size, stream>>>(
       pheromones, distances_processed, states, tours, graph.N, alpha);
   ReducePheromones<<<1, graph.N, 0, stream>>>(pheromones, evaporate, graph.N);
   ConstructDeposits<<<1, graph.N, 0, stream>>>(tours, deposits,
                                                graph.gpu_distances, graph.N);
-  DeposePheromones<<<graph.N, graph.N, 0, stream>>>(deposits, pheromones,
-                                                    graph.N);
+  DepositPheromones<<<graph.N, graph.N, shared_tile_size * sizeof(Deposits), stream>>>(deposits, pheromones,
+                                                    graph.N, shared_tile_size);
 
   cudaStreamEndCapture(stream, &cuda_graph);
 

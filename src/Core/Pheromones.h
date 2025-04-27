@@ -3,13 +3,17 @@
 
 #include <cuda_runtime.h>
 
-#define tile_size 1024
 
 typedef struct {
   int i;
   int j;
   float load;
 } Deposits;
+
+size_t FindTileSize(cudaDeviceProp &prop) {
+  return prop.sharedMemPerBlock / sizeof(Deposits);
+};
+
 
 __global__ void ConstructDeposits(int *tour, Deposits *array, float *distances,
                                   int N) {
@@ -40,11 +44,11 @@ __device__ void load_local(T *local, T *array, int size_to_load,
     index += num_threads;
   }
 }
-__global__ void DeposePheromones(Deposits *array, float *pheromones, int N) {
+__global__ void DepositPheromones(Deposits *array, float *pheromones, int N,int tile_size) {
   int i = threadIdx.x;
   int j = blockIdx.x;
 
-  __shared__ Deposits local[tile_size];
+  extern __shared__ Deposits local[];
 
   for (int idx = 0; idx < N * N; idx += tile_size) {
     load_local(local, array, tile_size, blockDim.x, idx, N * N);
