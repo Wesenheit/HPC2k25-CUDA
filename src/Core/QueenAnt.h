@@ -118,16 +118,10 @@ std::pair<float, std::vector<int>> QueenAnt(Graph &graph, int num_iterations,
   float *pheromones;
   float *distances_processed;
   int *tours;
-  int * deposit_idx1;
-  int * deposit_idx2;
-  float * deposit_load;
+  Deposits *deposits;
+
   gpuErrchk(
-      cudaMalloc((void **)&deposit_idx1, graph.N * graph.N * sizeof(int)));
-  gpuErrchk(
-      cudaMalloc((void **)&deposit_idx2, graph.N * graph.N * sizeof(int)));
-  gpuErrchk(
-      cudaMalloc((void **)&deposit_load, graph.N * graph.N * sizeof(float)));
-  
+      cudaMalloc((void **)&deposits, graph.N * graph.N * sizeof(Deposits)));
   gpuErrchk(cudaMalloc((void **)&tours, graph.N * graph.N * sizeof(int)));
   gpuErrchk(
       cudaMalloc((void **)&pheromones, graph.N * graph.N * sizeof(float)));
@@ -151,10 +145,10 @@ std::pair<float, std::vector<int>> QueenAnt(Graph &graph, int num_iterations,
                                        local_mem_size, stream>>>(
       pheromones, distances_processed, states, tours, alpha, graph.N);
   ReducePheromones<<<1, graph.N, 0, stream>>>(pheromones, evaporate, graph.N);
-  ConstructDeposits<<<1, graph.N, 0, stream>>>(tours, deposit_idx1,deposit_idx2, deposit_load,
+  ConstructDeposits<<<1, graph.N, 0, stream>>>(tours, deposits,
                                                graph.gpu_distances, graph.N);
-  DepositPheromones<<<graph.N, graph.N, 0, stream>>>(deposit_idx1, deposit_idx2, deposit_load, pheromones,
-                                                    graph.N);
+  DepositPheromones<<<graph.N, graph.N, shared_tile_size * sizeof(Deposits), stream>>>(deposits, pheromones,
+                                                    graph.N, shared_tile_size);
 
   cudaStreamEndCapture(stream, &cuda_graph);
 
@@ -180,10 +174,8 @@ std::pair<float, std::vector<int>> QueenAnt(Graph &graph, int num_iterations,
   gpuErrchk(cudaFree(distances_processed));
   gpuErrchk(cudaFree(pheromones));
   gpuErrchk(cudaFree(tours));
-  
-  gpuErrchk(cudaFree(deposit_idx1));
-  gpuErrchk(cudaFree(deposit_idx2));
-  gpuErrchk(cudaFree(deposit_load));
+  gpuErrchk(cudaFree(deposits));
+
   return out;
 }
 
