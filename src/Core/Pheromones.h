@@ -11,7 +11,7 @@ typedef struct {
 } Deposits;
 
 size_t FindTileSize(cudaDeviceProp &prop) {
-  return prop.sharedMemPerBlock / sizeof(Deposits);
+  return min(prop.sharedMemPerBlock / sizeof(Deposits),(size_t) 2048);
 };
 
 
